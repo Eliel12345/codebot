@@ -1,4 +1,4 @@
-from pyobigram.utils import sizeof_fmt,get_file_size,createID
+from pyobigram.utils import sizeof_fmt,get_file_size,createID,nice_time
 from pyobigram.client import ObigramClient,inlineQueryResultArticle
 from MoodleClient import MoodleClient
 
@@ -24,32 +24,33 @@ import tlmedia
 import S5Crypto
 
 
-def downloadFile(downloader,filename,currentBits,totalBits,speed,args,stop=False):
+
+def downloadFile(downloader,filename,currentBits,totalBits,speed,time,args):
     try:
         bot = args[0]
         message = args[1]
         thread = args[2]
         if thread.getStore('stop'):
             downloader.stop()
-        downloadingInfo = infos.createDownloading(filename,totalBits,currentBits,speed,tid=thread.id)
+        downloadingInfo = infos.createDownloading(filename,totalBits,currentBits,speed,time,tid=thread.id)
         bot.editMessageText(message,downloadingInfo)
     except Exception as ex: print(str(ex))
     pass
 
-def uploadFile(filename,currentBits,totalBits,speed,args):
+def uploadFile(filename,currentBits,totalBits,speed,time,args):
     try:
         bot = args[0]
         message = args[1]
         originalfile = args[2]
         thread = args[3]
-        downloadingInfo = infos.createUploading(filename,totalBits,currentBits,speed,originalfile)
+        downloadingInfo = infos.createUploading(filename,totalBits,currentBits,speed,time,originalfile)
         bot.editMessageText(message,downloadingInfo)
     except Exception as ex: print(str(ex))
     pass
 
 def processUploadFiles(filename,filesize,files,update,bot,message,thread=None,jdb=None):
     try:
-        bot.editMessageText(message,'》Preparando Subida...')
+        bot.editMessageText(message,'🤜Preparando Para Subir☄1�7...')
         evidence = None
         fileid = None
         user_info = jdb.get_user(update.message.sender.username)
@@ -82,13 +83,24 @@ def processUploadFiles(filename,filesize,files,update,bot,message,thread=None,jd
                     f_size = get_file_size(f)
                     resp = None
                     iter = 0
+                    tokenize = False
+                    if user_info['tokenize']!=0:
+                       tokenize = True
                     while resp is None:
                           if user_info['uploadtype'] == 'evidence':
-                             fileid,resp = client.upload_file(f,evidence,fileid,progressfunc=uploadFile,args=(bot,message,originalfile,thread))
+                             fileid,resp = client.upload_file(f,evidence,fileid,progressfunc=uploadFile,args=(bot,message,originalfile,thread),tokenize=tokenize)
                           if user_info['uploadtype'] == 'draft':
-                             fileid,resp = client.upload_file_draft(f,progressfunc=uploadFile,args=(bot,message,originalfile,thread))
+                             fileid,resp = client.upload_file_draft(f,progressfunc=uploadFile,args=(bot,message,originalfile,thread),tokenize=tokenize)
                              draftlist.append(resp)
-                             client = draftlist
+                          if user_info['uploadtype'] == 'perfil':
+                             fileid,resp = client.upload_file_perfil(f,progressfunc=uploadFile,args=(bot,message,originalfile,thread),tokenize=tokenize)
+                             draftlist.append(resp)
+                          if user_info['uploadtype'] == 'blog':
+                             fileid,resp = client.upload_file_blog(f,progressfunc=uploadFile,args=(bot,message,originalfile,thread),tokenize=tokenize)
+                             draftlist.append(resp)
+                          if user_info['uploadtype'] == 'calendar':
+                             fileid,resp = client.upload_file_calendar(f,progressfunc=uploadFile,args=(bot,message,originalfile,thread),tokenize=tokenize)
+                             draftlist.append(resp)
                           iter += 1
                           if iter>=10:
                               break
@@ -97,11 +109,14 @@ def processUploadFiles(filename,filesize,files,update,bot,message,thread=None,jd
                     try:
                         client.saveEvidence(evidence)
                     except:pass
-                return client
+                return draftlist
             else:
-                bot.editMessageText(message,'❌Error En La Pagina❌')
+                bot.editMessageText(message,'❌Error En La Pagina❄1�7')
         elif cloudtype == 'cloud':
-            bot.editMessageText(message,'》Subiendo a la Nube...')
+            tokenize = False
+            if user_info['tokenize']!=0:
+               tokenize = True
+            bot.editMessageText(message,'🤜Subiendo ☄1�7 Espere Mientras... 😄')
             host = user_info['moodle_host']
             user = user_info['moodle_user']
             passw = user_info['moodle_password']
@@ -114,14 +129,13 @@ def processUploadFiles(filename,filesize,files,update,bot,message,thread=None,jd
                     originalfile = filename
                filesdata = []
                for f in files:
-                   data = client.upload_file(f,path=remotepath,progressfunc=uploadFile,args=(bot,message,originalfile,thread))
+                   data = client.upload_file(f,path=remotepath,progressfunc=uploadFile,args=(bot,message,originalfile,thread),tokenize=tokenize)
                    filesdata.append(data)
-                   client = filesdata
                    os.unlink(f)
-               return client
+               return filesdata
         return None
     except Exception as ex:
-        bot.editMessageText(message,'❌Error En La Pagina❌')
+        bot.editMessageText(message,f'❌Error {str(ex)}❄1�7')
 
 
 def processFile(update,bot,message,file,thread=None,jdb=None):
@@ -148,7 +162,7 @@ def processFile(update,bot,message,file,thread=None,jdb=None):
     else:
         client = processUploadFiles(file,file_size,[file],update,bot,message,jdb=jdb)
         file_upload_count = 1
-    bot.editMessageText(message,'》Preparando Archivo...')
+    bot.editMessageText(message,'🤜Preparando Archivo📄...')
     evidname = ''
     files = []
     if client:
@@ -166,7 +180,7 @@ def processFile(update,bot,message,file,thread=None,jdb=None):
                            findex+=1
                     client.logout()
                 except:pass
-            if getUser['uploadtype'] == 'draft':
+            if getUser['uploadtype'] == 'draft' or getUser['uploadtype'] == 'blog' or getUser['uploadtype'] == 'calendar':
                for draft in client:
                    files.append({'name':draft['file'],'directurl':draft['url']})
         else:
@@ -180,7 +194,7 @@ def processFile(update,bot,message,file,thread=None,jdb=None):
             txtname = str(file).split('/')[-1].split('.')[0] + '.txt'
             sendTxt(txtname,files,update,bot)
     else:
-        bot.editMessageText(message,'❌Error En La Pagina❌')
+        bot.editMessageText(message,'❌Error En La Pagina❄1�7')
 
 def ddl(update,bot,message,url,file_name='',thread=None,jdb=None):
     downloader = Downloader()
@@ -191,7 +205,7 @@ def ddl(update,bot,message,url,file_name='',thread=None,jdb=None):
         else:
             megadl(update,bot,message,url,file_name,thread,jdb=jdb)
 
-def megadl(update,bot,message,megaurl,thread=None,jdb=None):
+def megadl(update,bot,message,megaurl,file_name='',thread=None,jdb=None):
     megadl = megacli.mega.Mega({'verbose': True})
     megadl.login()
     try:
@@ -264,23 +278,9 @@ def onmessage(update,bot:ObigramClient):
                     msg = '😃Genial @'+user+' ahora tiene acceso al bot👍'
                     bot.sendMessage(update.message.chat.id,msg)
                 except:
-                    bot.sendMessage(update.message.chat.id,'❌Error en el comando /adduser username❌')
+                    bot.sendMessage(update.message.chat.id,'❌Error en el comando /adduser username❄1�7')
             else:
-                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❌')
-            return
-        if '/addadmin' in msgText:
-            isadmin = jdb.is_admin(username)
-            if isadmin:
-                try:
-                    user = str(msgText).split(' ')[1]
-                    jdb.create_admin(user)
-                    jdb.save()
-                    msg = '😃Genial @'+user+' ahora es admin del bot👍'
-                    bot.sendMessage(update.message.chat.id,msg)
-                except:
-                    bot.sendMessage(update.message.chat.id,'❌Error en el comando /addadmin username❌')
-            else:
-                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❌')
+                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❄1�7')
             return
         if '/banuser' in msgText:
             isadmin = jdb.is_admin(username)
@@ -288,33 +288,24 @@ def onmessage(update,bot:ObigramClient):
                 try:
                     user = str(msgText).split(' ')[1]
                     if user == username:
-                        bot.sendMessage(update.message.chat.id,'❌No Se Puede Banear Usted❌')
+                        bot.sendMessage(update.message.chat.id,'❌No Se Puede Banear Usted❄1�7')
                         return
                     jdb.remove(user)
                     jdb.save()
-                    msg = '🦶Fuera @'+user+' Baneado❌'
+                    msg = '🦶Fuera @'+user+' Baneado❄1�7'
                     bot.sendMessage(update.message.chat.id,msg)
                 except:
-                    bot.sendMessage(update.message.chat.id,'❌Error en el comando /banuser username❌')
+                    bot.sendMessage(update.message.chat.id,'❌Error en el comando /banuser username❄1�7')
             else:
-                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❌')
+                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❄1�7')
             return
         if '/getdb' in msgText:
             isadmin = jdb.is_admin(username)
             if isadmin:
                 bot.sendMessage(update.message.chat.id,'Base De Datos👇')
-                bot.sendFile(update.message.chat.id,'newdb.jdb')
+                bot.sendFile(update.message.chat.id,'database.jdb')
             else:
-                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❌')
-            return
-        if '/leerdb' in msgText:
-            isadmin = jdb.is_admin(username)
-            if isadmin:
-                db = open('newdb.jdb','r')
-                bot.sendMessage(update.message.chat.id,db.read())
-                db.close()
-            else:
-                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❌')
+                bot.sendMessage(update.message.chat.id,'❌No Tiene Permiso❄1�7')
             return
         # end
 
@@ -324,13 +315,13 @@ def onmessage(update,bot:ObigramClient):
             bot.sendMessage(update.message.chat.id,tuto.read())
             tuto.close()
             return
-        if '/info' in msgText:
+        if '/myuser' in msgText:
             getUser = user_info
             if getUser:
                 statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
                 bot.sendMessage(update.message.chat.id,statInfo)
                 return
-        if '/zip' in msgText:
+        if '/zips' in msgText:
             getUser = user_info
             if getUser:
                 try:
@@ -341,7 +332,7 @@ def onmessage(update,bot:ObigramClient):
                    msg = '😃Genial los zips seran de '+ sizeof_fmt(size*1024*1024)+' las partes👍'
                    bot.sendMessage(update.message.chat.id,msg)
                 except:
-                   bot.sendMessage(update.message.chat.id,'❌Error en el comando /zips size❌')
+                   bot.sendMessage(update.message.chat.id,'❌Error en el comando /zips size❄1�7')
                 return
         if '/account' in msgText:
             try:
@@ -357,7 +348,7 @@ def onmessage(update,bot:ObigramClient):
                     statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
                     bot.sendMessage(update.message.chat.id,statInfo)
             except:
-                bot.sendMessage(update.message.chat.id,'❌Error en el comando /account user,password❌')
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /account user,password❄1�7')
             return
         if '/host' in msgText:
             try:
@@ -371,9 +362,9 @@ def onmessage(update,bot:ObigramClient):
                     statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
                     bot.sendMessage(update.message.chat.id,statInfo)
             except:
-                bot.sendMessage(update.message.chat.id,'❌Error en el comando /host moodlehost❌')
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /host moodlehost❄1�7')
             return
-        if '/repo' in msgText:
+        if '/repoid' in msgText:
             try:
                 cmd = str(msgText).split(' ',2)
                 repoid = int(cmd[1])
@@ -385,9 +376,33 @@ def onmessage(update,bot:ObigramClient):
                     statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
                     bot.sendMessage(update.message.chat.id,statInfo)
             except:
-                bot.sendMessage(update.message.chat.id,'❌Error en el comando /repo id❌')
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /repo id❄1�7')
             return
-        if '/type' in msgText:
+        if '/tokenize_on' in msgText:
+            try:
+                getUser = user_info
+                if getUser:
+                    getUser['tokenize'] = 1
+                    jdb.save_data_user(username,getUser)
+                    jdb.save()
+                    statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
+                    bot.sendMessage(update.message.chat.id,statInfo)
+            except:
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /tokenize state❄1�7')
+            return
+        if '/tokenize_off' in msgText:
+            try:
+                getUser = user_info
+                if getUser:
+                    getUser['tokenize'] = 0
+                    jdb.save_data_user(username,getUser)
+                    jdb.save()
+                    statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
+                    bot.sendMessage(update.message.chat.id,statInfo)
+            except:
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /tokenize state❄1�7')
+            return
+        if '/cloud' in msgText:
             try:
                 cmd = str(msgText).split(' ',2)
                 repoid = cmd[1]
@@ -399,7 +414,7 @@ def onmessage(update,bot:ObigramClient):
                     statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
                     bot.sendMessage(update.message.chat.id,statInfo)
             except:
-                bot.sendMessage(update.message.chat.id,'❌Error en el comando /cloud (moodle or cloud)❌')
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /cloud (moodle or cloud)❄1�7')
             return
         if '/uptype' in msgText:
             try:
@@ -413,7 +428,7 @@ def onmessage(update,bot:ObigramClient):
                     statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
                     bot.sendMessage(update.message.chat.id,statInfo)
             except:
-                bot.sendMessage(update.message.chat.id,'❌Error en el comando /uptype (typo de subida (evidence,draft,blog))❌')
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /uptype (typo de subida (evidence,draft,blog))❄1�7')
             return
         if '/proxy' in msgText:
             try:
@@ -444,7 +459,7 @@ def onmessage(update,bot:ObigramClient):
                     statInfo = infos.createStat(username,getUser,jdb.is_admin(username))
                     bot.sendMessage(update.message.chat.id,statInfo)
             except:
-                bot.sendMessage(update.message.chat.id,'❌Error en el comando /dir folder❌')
+                bot.sendMessage(update.message.chat.id,'❌Error en el comando /dir folder❄1�7')
             return
         if '/cancel_' in msgText:
             try:
@@ -454,7 +469,7 @@ def onmessage(update,bot:ObigramClient):
                 msg = tcancel.getStore('msg')
                 tcancel.store('stop',True)
                 time.sleep(3)
-                bot.editMessageText(msg,'❌Tarea Cancelada❌')
+                bot.editMessageText(msg,'❌Tarea Cancelada❄1�7')
             except Exception as ex:
                 print(str(ex))
             return
@@ -465,50 +480,24 @@ def onmessage(update,bot:ObigramClient):
         thread.store('msg',message)
 
         if '/start' in msgText:
-            start_msg = '✅ Bot Iniciado ✅\n'
-            start_msg += '❕Usa /tutorial para mostrar la ayuda.\n'
+            start_msg = 'Bot          : TGUploaderPro v7.0\n'
+            start_msg+= 'Desarrollador: @obisoftdev\n'
+            start_msg+= 'Api          : https://github.com/Obysoftt/pyobigram\n'
+            start_msg+= 'Uso          :Envia Enlaces De Descarga y Archivos Para Procesar (Configure Antes De Empezar , Vea El /tutorial)\n'
             bot.editMessageText(message,start_msg)
-
-        elif '/archivos' == msgText and user_info['cloudtype']=='moodle':
-            proxy = ProxyCloud.parse(user_info['proxy'])
-            client = MoodleClient(user_info['moodle_user'],
+        elif '/files' == msgText and user_info['cloudtype']=='moodle':
+             proxy = ProxyCloud.parse(user_info['proxy'])
+             client = MoodleClient(user_info['moodle_user'],
                                    user_info['moodle_password'],
                                    user_info['moodle_host'],
                                    user_info['moodle_repo_id'],proxy=proxy)
-            loged = client.login()
-            if loged:
-                #List = client.getEvidences()
-                #List1=List[:45]
-                #total=len(List)
-                #List2=List[46:]
-                #info1 = f'<b>Archivos: {str(total)}</b>\nEliminar todo: /delall\n\n'
-                #info = f'<b>Archivos: {str(total)}</b>\nEliminar todo: /delall\n\n'
-
-                #i = 1
-                #for item in List1:
-                #    info += '<b>/borrar_'+str(i)+'</b>\n'
-                #    for file in item['files']:
-                #        info += '<a href="'+file['directurl']+'">\t'+file['name']+'</a>\n'
-                #    info+='\n'
-                #    i+=1
-                #    bot.editMessageText(message, f'{info}',parse_mode="html")
-                #if len(List2)>0:
-                #    message = bot.sendMessage(update.message.chat.id,'🌐Conectando...')
-                #    for item in List2:
-                #        info1 += '<b>/borrar_'+str(i)+'</b>\n'
-                #        for file in item['files']: 
-                #            info1 += '<a href="'+file['url']+'">\t'+file['name']+'</a>\n'
-                #        info1+='\n'   
-                #        i+=1
-                #        bot.editMessageText(message, f'{info1}',parse_mode="html")
-
-
-
-                files = client.getEvidences()
-                filesInfo = infos.createFilesMsg(files)
-                bot.editMessageText(message,filesInfo,parse_mode='html')
-                client.logout()
-            else:
+             loged = client.login()
+             if loged:
+                 files = client.getEvidences()
+                 filesInfo = infos.createFilesMsg(files)
+                 bot.editMessageText(message,filesInfo)
+                 client.logout()
+             else:
                 bot.editMessageText(message,'❌Error y Causas🧐\n1-Revise su Cuenta\n2-Servidor Desabilitado: '+client.path)
         elif '/txt_' in msgText and user_info['cloudtype']=='moodle':
              findex = str(msgText).split('_')[1]
@@ -529,9 +518,8 @@ def onmessage(update,bot:ObigramClient):
              else:
                 bot.editMessageText(message,'❌Error y Causas🧐\n1-Revise su Cuenta\n2-Servidor Desabilitado: '+client.path)
              pass
-        elif '/borrar_' in msgText and user_info['cloudtype']=='moodle':
-            index = int(str(msgText).split('_')[1]) - 1
-            #index = int(ev.raw_text.split("_")[1]) - 1
+        elif '/del_' in msgText and user_info['cloudtype']=='moodle':
+            findex = int(str(msgText).split('_')[1])
             proxy = ProxyCloud.parse(user_info['proxy'])
             client = MoodleClient(user_info['moodle_user'],
                                    user_info['moodle_password'],
@@ -540,19 +528,10 @@ def onmessage(update,bot:ObigramClient):
                                    proxy=proxy)
             loged = client.login()
             if loged:
-                list = client.getEvidences()
-                if list != []:
-
-                    evid = list[index]
-
-                    bot.editMessageText(message,f"<i>❗️Eliminando...\n\n📦Archivo: {evid['name']}</i>",parse_mode="html")
-                    print('Eliminando...')
-                    client.deleteEvidence(evid)
-                    bot.editMessageText(message,f"<i>📦Archivo: {evid['name']}\n\n💢Archivo Eliminado💢</i>",parse_mode="html")
-                # evfile = client.getEvidences()[findex]
-                # client.deleteEvidence(evfile)
-                # client.logout()
-                # bot.editMessageText(message,'Archivo Borrado 🦶')
+                evfile = client.getEvidences()[findex]
+                client.deleteEvidence(evfile)
+                client.logout()
+                bot.editMessageText(message,'Archivo Borrado 🦶')
             else:
                 bot.editMessageText(message,'❌Error y Causas🧐\n1-Revise su Cuenta\n2-Servidor Desabilitado: '+client.path)
         elif 'http' in msgText:
@@ -574,13 +553,14 @@ def onmessage(update,bot:ObigramClient):
             #    import asyncio
             #    asyncio.run(tlmedia.download_media(api_id,api_hash,bot_token,chat_id,message_id))
             #    return
-            bot.editMessageText(message,'》Comando Inexistente')
+            bot.editMessageText(message,'😵No se pudo procesar😵')
     except Exception as ex:
            print(str(ex))
 
 
 def main():
     bot_token = os.environ.get('bot_token')
+
     #set in debug
     bot_token = '5296720357:AAFSKVkwxJci9Z8EvGBdgOxox-WZAd7isu8'
 
