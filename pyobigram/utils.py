@@ -1,7 +1,7 @@
 import requests
 import time
 import os
-
+import re
 
 def sizeof_fmt(num, suffix='B'):
     for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
@@ -52,3 +52,55 @@ def createID(count=8):
         id+=map[rnd]
         i+=1
     return id
+
+
+def nice_time(delta):
+    """
+    Gets time delta in seconds and returns a pretty string
+    representing it in the format of 1w2d9h16m44s
+    """
+
+    weeks = 0
+    days = 0
+    hours = 0
+    minutes = 0
+    seconds = 0
+
+    seconds_in_minute = 60
+    seconds_in_hour = 60 * seconds_in_minute
+    seconds_in_day = 24 * seconds_in_hour
+    seconds_in_week = 7 * seconds_in_day
+
+    weeks = delta / seconds_in_week
+    if weeks != 0:
+        delta -= weeks * seconds_in_week
+
+    days = delta / seconds_in_day
+    if days != 0:
+        delta -= days * seconds_in_day
+
+    hours = delta / seconds_in_hour
+    if hours != 0:
+        delta -= hours * seconds_in_hour
+
+    minutes = delta / seconds_in_minute
+    if minutes != 0:
+        delta -= minutes * seconds_in_minute
+
+    seconds = delta
+
+    out = ""
+    if seconds:
+        out = "%ss" % seconds + out
+    if minutes:
+        out = "%sm" % minutes + out
+    if hours:
+        out = "%sh" % hours + out
+    if days:
+        out = "%sd" % days + out
+    if weeks:
+        out = "%sw" % weeks + out
+
+    if out == "":
+        return "just now"
+    return out
